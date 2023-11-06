@@ -1,0 +1,16 @@
+add ban field to user, create ban struct that has different kinds of ban, 1 day, 1 week, 1 month, permanent, if user perfoms certain activities that auto get banned
+
+recommend user with non existing user name when signing up
+
+add google, github Oauth
+
+use ajax form for the front end
+
+write unit test
+
+// Errors for tommorw
+fix delete not fully working, instaed just updates deleted at field in db, delte should delete entirely
+
+checj he verify that checks to make sure input code matches code in db
+
+make code save in db not create if it already has an existing field for that email

@@ -1,0 +1,82 @@
+There are two ways we could check what the user provided if its a username or password123
+
+func Login(c *gin.Context) {
+	var input forms.Login
+
+	// Bind input
+	if err := c.ShouldBindJSON(&input); err != nil {
+		// check for error in required field
+		var errorMessage string
+		var validationErrors validator.ValidationErrors
+		if errors.As(err, &validationErrors) {
+			validationError := validationErrors[0]
+			if validationError.Tag() == "required" {
+				errorMessage = fmt.Sprintf("%s not provided", validationError.Field())
+			}
+		}
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"error": errorMessage})
+		return
+	}
+
+	// Check to make sure user provides atleast username and password
+	if input.UsernameOrMail == "" {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": "Provide either an email or username"})
+		return
+	}
+
+	result := make(chan *models.User)
+	defer close(result)
+
+	go FindUserByEmailOrUsername(input.UsernameOrMail, result)
+
+	// Wait for the first result
+	user := <-result
+
+	if user == nil {
+		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"error": "User account was not found"})
+		return
+	}
+
+	// check if password matches
+	_, err := userModel.CheckPassword(input.Password)
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{"message": "incorrect password provided", "error": err.Error()})
+		return
+	}
+	// if user.Verified == false {
+	// 	c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"message": "Please verify your email to login"})
+	// 	return
+	// }
+	jwt, err := util.GenerateJWT(user)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"message": "invalid token", "error": err.Error()})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"jwt": jwt, "Email": input.UsernameOrMail, "message": "Logged in successfully"})
+
+}
+
+func FindUserByEmailOrUsername(usernameOrMail string, result chan *models.User) {
+	// Try to find the user by email
+	userByEmail, err := userModel.GetUserByEmail(usernameOrMail)
+	if err == nil {
+		result <- userByEmail
+		return
+	}
+
+	// Try to find the user by username
+	userByUsername, err := userModel.GetUserByUsername(usernameOrMail)
+	if err == nil {
+		result <- userByUsername
+		return
+	}
+
+	// If both attempts fail, send nil
+	result <- nil
+}
+
+// You can use go routines for this, but I want to keep the code clean and use go routines only when necessary and I prefer to use the option that makes the least amount of db querys. Cus the go routine way maks the querys twice
+
+// we have to make username field not accept regex symbol @ to ensure the username and email dont clash cus we will be using @ symbol to check what to query in the Database
+
+mkdir geeky-hugo; mv * geeky-hugo/.; hugo -s geeky-hugo/exampleSite --minify --gc --themesDir ../..
