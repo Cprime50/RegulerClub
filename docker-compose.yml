@@ -1,0 +1,52 @@
+
+version: '3'
+
+services:
+
+  # start Postgres, and ensure that data is stored to a mounted volume
+  postgres:
+    image: 'postgres:latest'
+    ports:
+      - 5432:5432
+    restart: always
+    env_file:
+      - ./.env
+    volumes:
+        - postgres:/var/lib/postgresql/data
+
+  # traefik docker service
+  reverse-proxy:
+    image: traefik:v2.2
+    command:
+      - "--api.insecure=true"
+      - "--providers.docker"
+      - "--providers.docker.exposedByDefault=false"
+    ports:
+      #http port
+      - "80:80"
+      # UI port
+      - "8080:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+  
+  # account service
+  account:
+    build:
+      context: ./account
+      target: builder
+    image: account
+    expose:
+     - "8080"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.account.rule=Host(`benson.test`) && PathPrefix(`/api/account`)"
+    environment:
+      - ENV=dev
+    env_file:
+      - ./.env
+    volumes:
+      - ./account:/go/src/app
+
+
+volumes:
+  postgres:
